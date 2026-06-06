@@ -1,0 +1,20 @@
+:root { --bg: #111; --fg: #eee; --muted: #888; --accent: #66aacc; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+a { color: inherit; }
+.container { max-width: 720px; margin: 0 auto; padding: 16px; padding-bottom: 64px; }
+.nav { position: sticky; top: 0; display: flex; gap: 16px; padding: 12px 16px;
+  background: #000; border-bottom: 1px solid #222; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+.card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 8px; }
+.card span { display: block; font-size: 13px; margin-top: 4px; }
+input, button, select { font: inherit; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #333; background: #1a1a1a; color: var(--fg); }
+button { cursor: pointer; }
+.row { display: flex; gap: 8px; align-items: center; }
+.chapter-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #222; }
+.reader { white-space: pre-wrap; }
+.reader.theme-light { background: #fff; color: #111; }
+.reader.theme-sepia { background: #f4ecd8; color: #5b4636; }
+.reader.theme-dark { background: #111; color: #ddd; }
+.reader-wrap { min-height: 100vh; }
