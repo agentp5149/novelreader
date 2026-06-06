@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 import type { SearchResult, Novel, ChapterMeta, ChapterContent } from "../../shared/types";
 import { SourceLayoutError } from "./adapter";
+import type { SourceAdapter } from "./adapter";
+import type { FetchHtml } from "../http";
 
 export const BASE = "https://novelfire.net";
 
@@ -95,4 +97,30 @@ export function parseChapter(html: string, id: string): ChapterContent {
   const next = chapterIdFromHref($('a.nextchap[rel="next"]').attr("href"));
   const prev = chapterIdFromHref($('a.prevchap[rel="prev"]').attr("href"));
   return { id, title, text, prev, next };
+}
+
+export class NovelFireAdapter implements SourceAdapter {
+  constructor(private fetchHtml: FetchHtml | ((url: string) => Promise<string>)) {}
+
+  async search(query: string): Promise<SearchResult[]> {
+    const url = `${BASE}/search?keyword=${encodeURIComponent(query)}`;
+    return parseSearch(await this.fetchHtml(url));
+  }
+
+  async getNovel(slug: string): Promise<Novel> {
+    const meta = parseNovelMeta(await this.fetchHtml(`${BASE}/book/${slug}`), slug);
+    const firstPage = await this.fetchHtml(`${BASE}/book/${slug}/chapters?page=1`);
+    const lastPage = parseLastPage(firstPage);
+    const chapters: ChapterMeta[] = parseChapterListPage(firstPage, slug);
+    for (let p = 2; p <= lastPage; p++) {
+      const html = await this.fetchHtml(`${BASE}/book/${slug}/chapters?page=${p}`);
+      chapters.push(...parseChapterListPage(html, slug));
+    }
+    chapters.sort((a, b) => a.number - b.number);
+    return { ...meta, chapters };
+  }
+
+  async getChapter(id: string): Promise<ChapterContent> {
+    return parseChapter(await this.fetchHtml(`${BASE}/book/${id}`), id);
+  }
 }

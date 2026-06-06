@@ -9,7 +9,7 @@ describe("makeFetcher", () => {
     const fetchHtml = makeFetcher({ fetchImpl: fakeFetch as any, minIntervalMs: 0 });
     const body = await fetchHtml("https://novelfire.net/x");
     expect(body).toBe("<html>ok</html>");
-    const headers = (fakeFetch.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    const headers = ((fakeFetch.mock.calls[0] as unknown as unknown[])[1] as RequestInit).headers as Record<string, string>;
     expect(headers["User-Agent"]).toContain("Mozilla/5.0");
   });
 
