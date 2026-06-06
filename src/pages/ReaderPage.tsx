@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { db } from "../db";
@@ -19,8 +19,6 @@ export function ReaderPage() {
   const [chapter, setChapter] = useState<ChapterContent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
   // Load: prefer downloaded copy, else network.
   useEffect(() => {
     let cancelled = false;
@@ -52,34 +50,46 @@ export function ReaderPage() {
     return () => { cancelled = true; };
   }, [chapterId]);
 
-  // Save progress on scroll.
+  // Save progress on scroll (throttled to avoid IndexedDB write storms).
   useEffect(() => {
+    let timer: number | undefined;
     function onScroll() {
-      const max = document.body.scrollHeight - window.innerHeight;
-      const pct = max > 0 ? window.scrollY / max : 0;
-      db.progress.put({
-        novelSlug,
-        lastChapterId: chapterId,
-        scrollPct: pct,
-        updatedAt: Date.now()
-      });
+      if (timer !== undefined) return;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        const max = document.body.scrollHeight - window.innerHeight;
+        const pct = max > 0 ? window.scrollY / max : 0;
+        db.progress.put({
+          novelSlug,
+          lastChapterId: chapterId,
+          scrollPct: pct,
+          updatedAt: Date.now()
+        });
+      }, 400);
     }
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [novelSlug, chapterId]);
 
-  // Restore scroll once chapter renders.
+  // Restore scroll once chapter renders (after layout via rAF).
   useEffect(() => {
     if (!chapter) return;
+    let raf = 0;
     (async () => {
       const p = await db.progress.get(novelSlug);
-      if (p && p.lastChapterId === chapterId) {
-        const max = document.body.scrollHeight - window.innerHeight;
-        window.scrollTo(0, p.scrollPct * max);
-      } else {
-        window.scrollTo(0, 0);
-      }
+      raf = requestAnimationFrame(() => {
+        if (p && p.lastChapterId === chapterId) {
+          const max = document.body.scrollHeight - window.innerHeight;
+          window.scrollTo(0, p.scrollPct * max);
+        } else {
+          window.scrollTo(0, 0);
+        }
+      });
     })();
+    return () => cancelAnimationFrame(raf);
   }, [chapter, novelSlug, chapterId]);
 
   async function download() {
@@ -92,7 +102,7 @@ export function ReaderPage() {
   if (!chapter) return <div className="container">Loading…</div>;
 
   return (
-    <div className={`reader-wrap reader theme-${settings.theme}`} ref={wrapRef}>
+    <div className={`reader-wrap reader theme-${settings.theme}`}>
       <div className="nav">
         <button onClick={() => navigate(`/novel/${novelSlug}`)}>← Chapters</button>
         <button onClick={() => setShowSettings((s) => !s)}>Aa</button>
