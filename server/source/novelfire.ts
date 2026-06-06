@@ -28,3 +28,45 @@ export function parseSearch(html: string): SearchResult[] {
   });
   return results;
 }
+
+export function parseNovelMeta(
+  html: string,
+  slug: string
+): Omit<Novel, "chapters"> {
+  const $ = cheerio.load(html);
+  const title = $("h1.novel-title").first().text().trim();
+  if (!title) throw new SourceLayoutError("novel title not found");
+  const author = $('span[itemprop="author"]').first().text().trim();
+  const cover = $("figure.cover img").first().attr("src") ?? "";
+  const synopsis = $(".summary .content p")
+    .map((_, p) => $(p).text().trim())
+    .get()
+    .join(" ")
+    .trim();
+  return { slug, title, author, coverUrl: abs(cover), synopsis };
+}
+
+export function parseChapterListPage(html: string, slug: string): ChapterMeta[] {
+  const $ = cheerio.load(html);
+  const out: ChapterMeta[] = [];
+  $("ul.chapter-list li a").each((_, el) => {
+    const href = $(el).attr("href");
+    if (!href) return;
+    const number = parseInt($(el).find("span.chapter-no").text().trim(), 10);
+    const title = $(el).find("strong.chapter-title").text().trim();
+    const updatedAt = $(el).find("time.chapter-update").attr("datetime") ?? undefined;
+    const id = href.replace(/^.*\/book\//, "").replace(/\/$/, "");
+    out.push({ id, number, title, url: abs(href), updatedAt });
+  });
+  return out;
+}
+
+export function parseLastPage(html: string): number {
+  const $ = cheerio.load(html);
+  let max = 1;
+  $(".pagination a.page-link").each((_, el) => {
+    const n = parseInt($(el).text().trim(), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  });
+  return max;
+}
