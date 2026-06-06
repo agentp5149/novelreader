@@ -16,14 +16,18 @@ function slugFromBookHref(href: string): string {
 
 export function parseSearch(html: string): SearchResult[] {
   const $ = cheerio.load(html);
-  const items = $("li.novel-item");
+  // The search page also renders a "Some Popular Novels" suggestion section
+  // whose items are unrelated to the query — exclude it.
+  $("section.popular-novels").remove();
   const results: SearchResult[] = [];
-  items.each((_, el) => {
+  $("li.novel-item").each((_, el) => {
     const a = $(el).find('a[href^="/book/"]').first();
     const href = a.attr("href");
     if (!href) return;
     const title = $(el).find("h4.novel-title").text().trim();
-    const cover = $(el).find("figure.novel-cover img").attr("src") ?? "";
+    const img = $(el).find("figure.novel-cover img").first();
+    // Lazy-loaded images keep the real URL in data-src and a placeholder in src.
+    const cover = img.attr("data-src") ?? img.attr("src") ?? "";
     results.push({ slug: slugFromBookHref(href), title, coverUrl: abs(cover) });
   });
   return results;

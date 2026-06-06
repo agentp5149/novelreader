@@ -7,13 +7,16 @@ const fx = (name: string) =>
   readFileSync(join(__dirname, "fixtures", name), "utf8");
 
 describe("parseSearch", () => {
-  it("extracts novels from search HTML", () => {
+  it("extracts only the real search results, excluding popular suggestions", () => {
     const results = parseSearch(fx("search.html"));
-    expect(results.length).toBeGreaterThan(0);
+    expect(results.length).toBe(8);
     const first = results[0];
     expect(first.slug).toBe("shadow-slave");
     expect(first.title).toBe("Shadow Slave");
     expect(first.coverUrl).toBe("https://novelfire.net/server-1/shadow-slave.jpg");
+    expect(
+      results.every((r) => r.coverUrl.startsWith("https://novelfire.net/server-1/"))
+    ).toBe(true);
   });
 });
 
