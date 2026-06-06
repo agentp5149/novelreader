@@ -70,3 +70,25 @@ export function parseLastPage(html: string): number {
   });
   return max;
 }
+
+function chapterIdFromHref(href: string | undefined): string | undefined {
+  if (!href || href.startsWith("javascript")) return undefined;
+  return href.replace(/^.*\/book\//, "").replace(/\/$/, "");
+}
+
+export function parseChapter(html: string, id: string): ChapterContent {
+  const $ = cheerio.load(html);
+  const title = $(".titles .chapter-title").first().text().trim();
+  const container = $("#chapter-container");
+  if (container.length === 0) throw new SourceLayoutError("chapter container not found");
+  container.find("script, ins, .nf-ads, iframe").remove();
+  const text = container
+    .find("p")
+    .map((_, p) => $(p).text().trim())
+    .get()
+    .filter((t) => t.length > 0)
+    .join("\n\n");
+  const next = chapterIdFromHref($('a.nextchap[rel="next"]').attr("href"));
+  const prev = chapterIdFromHref($('a.prevchap[rel="prev"]').attr("href"));
+  return { id, title, text, prev, next };
+}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseSearch, parseNovelMeta, parseChapterListPage, parseLastPage } from "../source/novelfire";
+import { parseSearch, parseNovelMeta, parseChapterListPage, parseLastPage, parseChapter } from "../source/novelfire";
 
 const fx = (name: string) =>
   readFileSync(join(__dirname, "fixtures", name), "utf8");
@@ -42,5 +42,16 @@ describe("parseChapterListPage", () => {
 
   it("detects the last pagination page", () => {
     expect(parseLastPage(fx("chapters.html"))).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("parseChapter", () => {
+  it("extracts title, text, and next id", () => {
+    const ch = parseChapter(fx("chapter.html"), "shadow-slave/chapter-1");
+    expect(ch.id).toBe("shadow-slave/chapter-1");
+    expect(ch.title).toContain("Nightmare Begins");
+    expect(ch.text.length).toBeGreaterThan(200);
+    expect(ch.next).toBe("shadow-slave/chapter-2");
+    expect(ch.prev).toBeUndefined();
   });
 });
