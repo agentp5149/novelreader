@@ -1,10 +1,13 @@
 import express from "express";
+import { makeApiRouter } from "./routes";
+import { makeFetcher } from "./http";
+import { NovelFireAdapter } from "./source/novelfire";
 
 export const app = express();
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
-});
+const adapter = new NovelFireAdapter(makeFetcher());
+app.use("/api", makeApiRouter(adapter));
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static("dist"));
