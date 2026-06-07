@@ -9,7 +9,18 @@ const fakeAdapter: SourceAdapter = {
   getNovel: async (slug) => ({
     slug, title: "X", author: "A", coverUrl: "c", synopsis: "s", chapters: []
   }),
-  getChapter: async (id) => ({ id, title: "T", text: "body", next: undefined, prev: undefined })
+  getChapter: async (id) => ({ id, title: "T", text: "body", next: undefined, prev: undefined }),
+  getHome: async () => ({
+    recommended: [{ slug: "r", title: "R", coverUrl: "c" }],
+    completed: [{ slug: "c", title: "C", coverUrl: "c" }],
+    ranking: [
+      {
+        key: "most-read",
+        label: "Most Read",
+        entries: [{ rank: 1, slug: "n1", title: "N1", coverUrl: "c", stats: [] }]
+      }
+    ]
+  })
 };
 
 function makeApp() {
@@ -40,5 +51,13 @@ describe("api routes", () => {
     const res = await request(makeApp()).get("/api/chapter?id=abc/chapter-1");
     expect(res.status).toBe(200);
     expect(res.body.text).toBe("body");
+  });
+
+  it("GET /api/home returns curated sections", async () => {
+    const res = await request(makeApp()).get("/api/home");
+    expect(res.status).toBe(200);
+    expect(res.body.recommended[0].slug).toBe("r");
+    expect(res.body.completed[0].slug).toBe("c");
+    expect(res.body.ranking[0].entries[0].rank).toBe(1);
   });
 });

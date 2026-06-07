@@ -1,4 +1,4 @@
-import type { SearchResult, Novel, ChapterContent } from "../../shared/types";
+import type { SearchResult, Novel, ChapterContent, HomeFeed } from "../../shared/types";
 
 export interface SourceAdapter {
   /** Search the source by free-text query. */
@@ -7,6 +7,8 @@ export interface SourceAdapter {
   getNovel(slug: string): Promise<Novel>;
   /** Fetch a single chapter's text and prev/next ids. */
   getChapter(id: string): Promise<ChapterContent>;
+  /** Fetch the source home page's curated sections (recommended, completed). */
+  getHome(): Promise<HomeFeed>;
 }
 
 /** Thrown when scraped HTML no longer matches expected selectors. */

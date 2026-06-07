@@ -1,4 +1,4 @@
-import type { SearchResult, Novel, ChapterContent } from "../shared/types";
+import type { SearchResult, Novel, ChapterContent, HomeFeed } from "../shared/types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -15,5 +15,6 @@ export const api = {
   novel: (slug: string) =>
     getJson<Novel>(`/api/novel?slug=${encodeURIComponent(slug)}`),
   chapter: (id: string) =>
-    getJson<ChapterContent>(`/api/chapter?id=${encodeURIComponent(id)}`)
+    getJson<ChapterContent>(`/api/chapter?id=${encodeURIComponent(id)}`),
+  home: () => getJson<HomeFeed>(`/api/home`)
 };

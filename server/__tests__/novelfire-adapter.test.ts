@@ -37,3 +37,16 @@ describe("NovelFireAdapter.getChapter", () => {
     expect(ch.next).toBe("shadow-slave/chapter-2");
   });
 });
+
+describe("NovelFireAdapter.getHome", () => {
+  it("fetches the home page and returns curated sections", async () => {
+    const fetchHtml = async (url: string) => {
+      if (url === "https://novelfire.net/home") return fx("home.html");
+      throw new Error("unexpected url " + url);
+    };
+    const adapter = new NovelFireAdapter(fetchHtml);
+    const feed = await adapter.getHome();
+    expect(feed.recommended.length).toBeGreaterThan(0);
+    expect(feed.completed.length).toBeGreaterThan(0);
+  });
+});

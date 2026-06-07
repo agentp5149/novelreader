@@ -1,5 +1,14 @@
 import * as cheerio from "cheerio";
-import type { SearchResult, Novel, ChapterMeta, ChapterContent } from "../../shared/types";
+import type {
+  SearchResult,
+  Novel,
+  ChapterMeta,
+  ChapterContent,
+  HomeFeed,
+  RankStat,
+  RankEntry,
+  RankingTab
+} from "../../shared/types";
 import { SourceLayoutError } from "./adapter";
 import type { SourceAdapter } from "./adapter";
 import type { FetchHtml } from "../http";
@@ -35,6 +44,106 @@ export function parseSearch(html: string): SearchResult[] {
   return results;
 }
 
+// NovelFire renders stats with an icon font we don't ship; map each icon class
+// to an equivalent emoji so the meaning survives in our own design.
+const RANK_ICON: Record<string, string> = {
+  "icon-eye": "👁",
+  "icon-bookmark": "🔖",
+  "icon-commenting-o": "💬",
+  "icon-ok": "✓",
+  "icon-pencil-2": "✍"
+};
+
+function rankSlug(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function rankingFromDoc($: cheerio.CheerioAPI): RankingTab[] {
+  const tabs: RankingTab[] = [];
+  $(".index-rank .rank-container").each((_, rc) => {
+    const label = $(rc).find("h3").first().text().trim();
+    const entries: RankEntry[] = [];
+    $(rc)
+      .find("li.novel-item")
+      .each((i, el) => {
+        const href = $(el).find('a[href^="/book/"]').first().attr("href");
+        if (!href) return;
+        const title = $(el).find("h4.novel-title").first().text().trim();
+        const img = $(el).find(".novel-cover img").first();
+        const cover = img.attr("data-src") ?? img.attr("src") ?? "";
+        const ratingAttr = $(el).find(".info-rating").attr("data-rating");
+        const rating = ratingAttr ? Number(ratingAttr) : undefined;
+        const stats: RankStat[] = [];
+        $(el)
+          .find(".item-body span")
+          .each((_, sp) => {
+            const text = $(sp).text().trim();
+            if (!text) return;
+            const iconClass = ($(sp).find("i").attr("class") ?? "")
+              .split(/\s+/)
+              .find((c) => c.startsWith("icon-")) ?? "";
+            stats.push({ icon: RANK_ICON[iconClass] ?? "", text });
+          });
+        entries.push({
+          rank: i + 1,
+          slug: slugFromBookHref(href),
+          title,
+          coverUrl: abs(cover),
+          rating,
+          stats
+        });
+      });
+    if (entries.length) tabs.push({ key: rankSlug(label), label, entries });
+  });
+  return tabs;
+}
+
+export function parseRanking(html: string): RankingTab[] {
+  return rankingFromDoc(cheerio.load(html));
+}
+
+export function parseHome(html: string): HomeFeed {
+  const $ = cheerio.load(html);
+
+  // Parse the simple novel-list cards inside one home section.
+  const itemsIn = (section: ReturnType<typeof $>): SearchResult[] => {
+    const out: SearchResult[] = [];
+    section.find("li.novel-item").each((_, el) => {
+      const a = $(el).find('a[href^="/book/"]').first();
+      const href = a.attr("href");
+      if (!href) return;
+      const title = $(el).find("h4.novel-title").first().text().trim();
+      const img = $(el).find(".novel-cover img").first();
+      // Covers are lazy-loaded: real URL lives in data-src, placeholder in src.
+      const cover = img.attr("data-src") ?? img.attr("src") ?? "";
+      out.push({ slug: slugFromBookHref(href), title, coverUrl: abs(cover) });
+    });
+    return out;
+  };
+
+  // Home sections are identified by their <h3> heading text.
+  const sectionFor = (heading: string): SearchResult[] => {
+    let found: SearchResult[] = [];
+    $("section").each((_, sec) => {
+      if (found.length) return;
+      const h3 = $(sec).find("h3").first().text().trim().toLowerCase();
+      if (h3 === heading.toLowerCase()) found = itemsIn($(sec));
+    });
+    return found;
+  };
+
+  const recommended = sectionFor("Recommends");
+  const completed = sectionFor("Completed Stories");
+  const ranking = rankingFromDoc($);
+  if (recommended.length === 0 && completed.length === 0 && ranking.length === 0) {
+    throw new SourceLayoutError("home sections not found");
+  }
+  return { recommended, completed, ranking };
+}
+
 export function parseNovelMeta(
   html: string,
   slug: string
@@ -44,11 +153,26 @@ export function parseNovelMeta(
   if (!title) throw new SourceLayoutError("novel title not found");
   const author = $('span[itemprop="author"]').first().text().trim();
   const cover = $("figure.cover img").first().attr("src") ?? "";
-  const synopsis = $(".summary .content p")
+
+  // Description: prefer the summary paragraphs; fall back through the summary
+  // block's raw text, then the page's meta description, so it's rarely empty.
+  const content = $(".summary .content").first().clone();
+  content.find(".expand, script, style").remove();
+  let synopsis = content
+    .find("p")
     .map((_, p) => $(p).text().trim())
     .get()
-    .join(" ")
+    .filter((t) => t.length > 0)
+    .join("\n\n")
     .trim();
+  if (!synopsis) synopsis = content.text().replace(/\s+/g, " ").trim();
+  if (!synopsis) {
+    synopsis =
+      $('meta[property="og:description"]').attr("content")?.trim() ??
+      $('meta[name="description"]').attr("content")?.trim() ??
+      "";
+  }
+
   return { slug, title, author, coverUrl: abs(cover), synopsis };
 }
 
@@ -122,5 +246,9 @@ export class NovelFireAdapter implements SourceAdapter {
 
   async getChapter(id: string): Promise<ChapterContent> {
     return parseChapter(await this.fetchHtml(`${BASE}/book/${id}`), id);
+  }
+
+  async getHome(): Promise<HomeFeed> {
+    return parseHome(await this.fetchHtml(`${BASE}/home`));
   }
 }

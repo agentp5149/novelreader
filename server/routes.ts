@@ -24,6 +24,14 @@ export function makeApiRouter(adapter: SourceAdapter): Router {
     }
   });
 
+  r.get("/home", async (_req, res) => {
+    try {
+      res.json(await adapter.getHome());
+    } catch (e) {
+      res.status(502).json({ error: (e as Error).message });
+    }
+  });
+
   r.get("/chapter", async (req, res) => {
     const id = String(req.query.id ?? "").trim();
     if (!id) return res.status(400).json({ error: "missing id" });
