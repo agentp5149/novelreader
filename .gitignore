@@ -1,0 +1,6 @@
+node_modules
+dist
+dev-dist
+recon
+*.local
+.DS_Store
