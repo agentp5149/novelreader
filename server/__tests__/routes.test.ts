@@ -7,7 +7,11 @@ import type { SourceAdapter } from "../source/adapter";
 const fakeAdapter: SourceAdapter = {
   search: async (q) => [{ slug: "x", title: "X " + q, coverUrl: "c" }],
   getNovel: async (slug) => ({
-    slug, title: "X", author: "A", coverUrl: "c", synopsis: "s", chapters: []
+    slug, title: "X", author: "A", coverUrl: "c", synopsis: "s",
+    chapters: [
+      { id: `${slug}/chapter-1`, number: 1, title: "Chapter 1", url: "u1" },
+      { id: `${slug}/chapter-2`, number: 2, title: "Chapter 2", url: "u2" }
+    ]
   }),
   getChapter: async (id) => ({ id, title: "T", text: "body", next: undefined, prev: undefined }),
   getHome: async () => ({
@@ -59,5 +63,17 @@ describe("api routes", () => {
     expect(res.body.recommended[0].slug).toBe("r");
     expect(res.body.completed[0].slug).toBe("c");
     expect(res.body.ranking[0].entries[0].rank).toBe(1);
+  });
+
+  it("GET /api/epub?slug= returns an epub attachment", async () => {
+    const res = await request(makeApp()).get("/api/epub?slug=abc");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/epub+zip");
+    expect(res.headers["content-disposition"]).toContain("abc.epub");
+  });
+
+  it("GET /api/epub without slug returns 400", async () => {
+    const res = await request(makeApp()).get("/api/epub");
+    expect(res.status).toBe(400);
   });
 });

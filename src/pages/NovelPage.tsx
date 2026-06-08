@@ -81,6 +81,21 @@ export function NovelPage() {
     return () => window.clearTimeout(t);
   }, [jumpTo, activeGroup]);
 
+  // Trigger a browser download of an EPUB for the whole novel or a chapter range.
+  function exportEpub(from?: number, to?: number) {
+    const params = new URLSearchParams({ slug });
+    if (from && to) {
+      params.set("from", String(from));
+      params.set("to", String(to));
+    }
+    const a = document.createElement("a");
+    a.href = `/api/epub?${params.toString()}`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   async function addToLibrary() {
     if (!novel) return;
     await db.novels.put({
@@ -121,6 +136,28 @@ export function NovelPage() {
       </section>
 
       <h3 className="section-title">Chapters ({novel.chapters.length})</h3>
+
+      <div className="export-bar">
+        {groups.length > 1 && groups[activeGroup] && (
+          <button
+            onClick={() =>
+              exportEpub(
+                activeGroup * CHAPTERS_PER_GROUP + 1,
+                activeGroup * CHAPTERS_PER_GROUP + groups[activeGroup].length
+              )
+            }
+          >
+            ⬇ EPUB · ch {activeGroup * CHAPTERS_PER_GROUP + 1}–
+            {activeGroup * CHAPTERS_PER_GROUP + groups[activeGroup].length}
+          </button>
+        )}
+        <button onClick={() => exportEpub()}>⬇ EPUB · whole novel</button>
+        <span className="export-hint">
+          Saves an .epub for offline reading (Apple Books). Large ranges take a
+          minute or two — the download starts when it's ready.
+        </span>
+      </div>
+
       {groups.length > 1 && (
         <>
           <div className="chapter-tools">
